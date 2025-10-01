@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mini Arena — Single File</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    html,body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; background:#111; color:#eee; }
+    #ui { display:flex; gap:8px; padding:8px; background:#0f1724; align-items:center; }
+    button { padding:8px 12px; border-radius:6px; border:0; background:#2563eb; color:white; cursor:pointer; }
+    #game-container { width:100%; height:calc(100vh - 56px); }
+    #info { margin-left:12px; }
+  </style>
+  <!-- Phaser 3 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+</head>
+<body>
+  <div id="ui">
+    <button id="spawnLeft">Spawn Left Unit (10)</button>
+    <button id="spawnRight">Spawn Right Unit (10)</button>
+    <div id="info">Left Tower HP: <span id="leftHp">100</span> — Right Tower HP: <span id="rightHp">100</span></div>
+  </div>
+  <div id="game-container"></div>
+
+  <script>
+  // Combined game.js content (slightly trimmed)
+  const WIDTH = 900;
+  const HEIGHT = 450;
+
+  const config = {
+    type: Phaser.AUTO,
+    parent: 'game-container',
+    width: WIDTH,
+    height: HEIGHT,
+    backgroundColor: '#15202b',
+    physics: { default: 'arcade', arcade: { debug: false } },
+    scene: { preload, create, update }
+  };
+
+  const game = new Phaser.Game(config);
+
+  function preload() {}
+
+  let leftGroup, rightGroup;
+  let leftTower, rightTower;
+  let leftHp = 100, rightHp = 100;
+
+  function create() {
+    const g = this.add.graphics();
+    g.fillStyle(0x1f2937, 1);
+    g.fillRect(40, HEIGHT/2 - 60, 40, 120);
+    g.fillRect(WIDTH - 80, HEIGHT/2 - 60, 40, 120);
+
+    this.add.text(20, 20, 'Mini Arena Demo', { fontSize: '20px', color: '#ffffff' });
+
+    leftGroup = this.physics.add.group();
+    rightGroup = this.physics.add.group();
+
+    leftTower = this.physics.add.staticImage(60, HEIGHT/2, null).setSize(40,120).setVisible(false);
+    rightTower = this.physics.add.staticImage(WIDTH - 60, HEIGHT/2, null).setSize(40,120).setVisible(false);
+
+    this.physics.add.overlap(leftGroup, rightTower, unitHitTower, null, this);
+    this.physics.add.overlap(rightGroup, leftTower, unitHitTower, null, this);
+    this.physics.add.collider(leftGroup, rightGroup, unitsCollide, null, this);
+
+    document.getElementById('spawnLeft').addEventListener('click', () => spawnUnit(this, 'left'));
+    document.getElementById('spawnRight').addEventListener('click', () => spawnUnit(this, 'right'));
+
+    updateHpUI();
+  }
+
+  function update() {}
+
+  function spawnUnit(scene, side) {
+    const x = side === 'left' ? 120 : WIDTH - 120;
+    const y = Phaser.Math.Between(HEIGHT/2 - 30, HEIGHT/2 + 30);
+    const color = side === 'left' ? 0x60a5fa : 0xf472b6;
+    const speed = 60;
+    const key = 'unit-' + color;
+    if (!scene.textures.exists(key)) {
+      const rt = scene.add.renderTexture(0,0,32,32);
+      const gfx = scene.make.graphics({x:0,y:0,add:false});
+      gfx.fillStyle(color,1);
+      gfx.fillCircle(16,16,14);
+      gfx.generateTexture(key,32,32);
+      gfx.destroy();
+      rt.destroy();
+    }
+    const sprite = scene.physics.add.image(x, y, key);
+    sprite.setData('hp', 10);
+    sprite.setData('atk', 2);
+    sprite.setData('side', side);
+
+    if (side === 'left') {
+      sprite.setVelocityX(speed);
+      leftGroup.add(sprite);
+    } else {
+      sprite.setVelocityX(-speed);
+      rightGroup.add(sprite);
+    }
+  }
+
+  function unitHitTower(unit, tower) {
+    const side = unit.getData('side');
+    const atk = unit.getData('atk') || 1;
+    if (side === 'left') { rightHp -= atk; if (rightHp < 0) rightHp = 0; }
+    else { leftHp -= atk; if (leftHp < 0) leftHp = 0; }
+    unit.destroy();
+    updateHpUI();
+    checkWin();
+  }
+
+  function unitsCollide(a, b) {
+    a.setData('hp', a.getData('hp') - b.getData('atk'));
+    b.setData('hp', b.getData('hp') - a.getData('atk'));
+    if (a.getData('hp') <= 0) a.destroy();
+    if (b.getData('hp') <= 0) b.destroy();
+  }
+
+  function updateHpUI() {
+    document.getElementById('leftHp').textContent = leftHp;
+    document.getElementById('rightHp').textContent = rightHp;
+  }
+
+  function checkWin() {
+    if (leftHp <= 0) showEnd('Right side wins!');
+    else if (rightHp <= 0) showEnd('Left side wins!');
+  }
+
+  function showEnd(text) {
+    const scene = game.scene.scenes[0];
+    scene.add.rectangle(WIDTH/2, HEIGHT/2, 600, 120, 0x000000, 0.7);
+    const t = scene.add.text(WIDTH/2, HEIGHT/2, text + '\\nRefresh to play again', { fontSize: '24px', color: '#fff', align:'center' });
+    t.setOrigin(0.5);
+  }
+  </script>
+</body>
+</html>

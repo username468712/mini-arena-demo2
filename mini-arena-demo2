@@ -142,3 +142,5 @@ game.js
   </script>
 </body>
 </html>
+        *   For Yarn: ```shell
+            yarn install
